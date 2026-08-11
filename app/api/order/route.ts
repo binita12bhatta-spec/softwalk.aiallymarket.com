@@ -5,7 +5,16 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 type OrderInput = { customerName: string; phone: string; email: string; location: string; deliveryArea: 'valley' | 'outside'; deliveryFee: number; productName: string; quantity: number; pricePerPiece: number; totalPrice: number };
 const requiredEnv = ['GOOGLE_SHEET_ID', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_PRIVATE_KEY', 'GOOGLE_SHEET_TAB_NAME', 'BUSINESS_EMAIL', 'EMAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
-function isValid(input: Partial<OrderInput>) { return typeof input.customerName === 'string' && input.customerName.trim() && /^[0-9+\-\s]{7,20}$/.test(input.phone || '') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email || '') && typeof input.location === 'string' && input.location.trim() && typeof input.productName === 'string' && input.productName.trim() && Number.isInteger(input.quantity) && input.quantity >= 1 && Number.isFinite(input.pricePerPiece) && input.pricePerPiece > 0 && Number.isFinite(input.totalPrice) && input.totalPrice > 0; }
+function isValid(input: Partial<OrderInput>): input is OrderInput {
+  return typeof input.customerName === 'string' && input.customerName.trim().length > 0 &&
+    typeof input.phone === 'string' && /^[0-9+\-\s]{7,20}$/.test(input.phone) &&
+    typeof input.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email) &&
+    typeof input.location === 'string' && input.location.trim().length > 0 &&
+    typeof input.productName === 'string' && input.productName.trim().length > 0 &&
+    typeof input.quantity === 'number' && Number.isInteger(input.quantity) && input.quantity >= 1 &&
+    typeof input.pricePerPiece === 'number' && Number.isFinite(input.pricePerPiece) && input.pricePerPiece > 0 &&
+    typeof input.totalPrice === 'number' && Number.isFinite(input.totalPrice) && input.totalPrice > 0;
+}
 const format = (n: number) => `Rs ${n.toLocaleString('en-IN')}`;
 const shell = (title: string, body: string) => `<div style="margin:0;background:#f8f2e9;padding:32px 16px;font-family:Arial,sans-serif;color:#25201d"><table role="presentation" style="max-width:620px;width:100%;margin:auto;background:#fff;border-radius:20px;overflow:hidden;border-collapse:separate"><tr><td style="padding:24px 32px;background:#25201d;color:#fff;font:700 25px Georgia,serif">Soft<span style="color:#f2c1aa">Walk</span></td></tr><tr><td style="padding:32px">${body}</td></tr><tr><td style="padding:20px 32px;background:#f8f2e9;color:#716963;font-size:12px">SoftWalk · Comfort in every step</td></tr></table></div>`;
 function row(label: string, value: string | number) { return `<tr><td style="padding:10px 0;color:#716963;border-bottom:1px solid #eee">${label}</td><td style="padding:10px 0;text-align:right;font-weight:700;border-bottom:1px solid #eee">${value}</td></tr>`; }
