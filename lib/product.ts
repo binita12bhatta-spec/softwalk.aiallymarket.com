@@ -5,7 +5,7 @@ export const product = {
   currency: 'Rs',
   delivery: { valley: 0, outside: 100 },
   images: [
-    '/products/sandal-1.jfif',
+    '/products/sandal-1.png',
     '/products/sandal-2.jpg',
     '/products/sandal-3.jpg',
     '/products/sandal-4.webp'
