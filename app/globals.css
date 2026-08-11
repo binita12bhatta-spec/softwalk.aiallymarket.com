@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { color: #25201d; background: #f8f2e9; }
+::selection { background: #e7b9a3; }
+.pattern { background-image: radial-gradient(#c8593c22 1px, transparent 1px); background-size: 18px 18px; }
+.phone-frame { border: 8px solid #25201d; border-radius: 2rem; overflow: hidden; box-shadow: 12px 14px 0 #e7b9a3; }
