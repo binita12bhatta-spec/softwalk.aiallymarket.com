@@ -16,11 +16,12 @@ async function setupSheet(sheets: ReturnType<typeof google.sheets>) {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
   const title = process.env.GOOGLE_SHEET_TAB_NAME!;
   const info = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets(properties(sheetId,title),data.rowData.values.formattedValue)' });
-  const sheet = info.data.sheets?.find((item) => item.properties?.title === title);
-  if (!sheet?.properties?.sheetId) throw new Error(`Sheet tab '${title}' was not found.`);
-  if (sheet.data?.[0]?.rowData?.[0]?.values?.some((cell) => cell.formattedValue)) return;
+  const sheet = info.data.sheets?.find((item) => item.properties?.title === title) ?? info.data.sheets?.[0];
+  if (!sheet?.properties?.sheetId || !sheet.properties.title) throw new Error('No usable sheet tab was found in this spreadsheet.');
+  const activeTitle = sheet.properties.title;
+  if (sheet.data?.[0]?.rowData?.[0]?.values?.some((cell) => cell.formattedValue)) return activeTitle;
   const sheetId = sheet.properties.sheetId;
-  await sheets.spreadsheets.values.update({ spreadsheetId, range: `'${title.replace(/'/g, "''")}'!A1:M1`, valueInputOption: 'RAW', requestBody: { values: [columns] } });
+  await sheets.spreadsheets.values.update({ spreadsheetId, range: `'${activeTitle.replace(/'/g, "''")}'!A1:M1`, valueInputOption: 'RAW', requestBody: { values: [columns] } });
   await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: [
     { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } },
     { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 13 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.145, green: 0.125, blue: 0.114 }, textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,wrapStrategy)' } },
@@ -29,6 +30,7 @@ async function setupSheet(sheets: ReturnType<typeof google.sheets>) {
     { setDataValidation: { range: { sheetId, startRowIndex: 1, startColumnIndex: 11, endColumnIndex: 12 }, rule: { condition: { type: 'ONE_OF_LIST', values: ['New Order', 'Order Confirmed', 'Order Ongoing', 'Delivered', 'Cancelled'].map((value) => ({ userEnteredValue: value })) }, strict: true, showCustomUi: true } } },
     { setBasicFilter: { filter: { range: { sheetId, startRowIndex: 0, startColumnIndex: 0, endColumnIndex: 13 } } } }
   ] } });
+  return activeTitle;
 }
 
 function emailLayout(content: string) { return `<div style="background:#f8f2e9;padding:32px 16px;font-family:Arial,sans-serif;color:#25201d"><table role="presentation" style="max-width:620px;width:100%;margin:auto;background:#fff;border-radius:20px;overflow:hidden"><tr><td style="padding:24px 32px;background:#25201d;color:#fff;font:700 25px Georgia,serif">Soft<span style="color:#f2c1aa">Walk</span></td></tr><tr><td style="padding:32px">${content}</td></tr><tr><td style="padding:18px 32px;background:#f8f2e9;color:#716963;font-size:12px">SoftWalk · Comfort in every step</td></tr></table></div>`; }
@@ -44,8 +46,7 @@ export async function POST(request: NextRequest) {
     const timestamp = new Intl.DateTimeFormat('en-NP', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kathmandu' }).format(new Date());
     const auth = new google.auth.JWT({ email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL, key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'), scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
     const sheets = google.sheets({ version: 'v4', auth });
-    await setupSheet(sheets);
-    const tab = process.env.GOOGLE_SHEET_TAB_NAME!.replace(/'/g, "''");
+    const tab = (await setupSheet(sheets)).replace(/'/g, "''");
     await sheets.spreadsheets.values.append({ spreadsheetId: process.env.GOOGLE_SHEET_ID, range: `'${tab}'!A:M`, valueInputOption: 'USER_ENTERED', requestBody: { values: [[orderId, timestamp, order.customerName, order.phone, order.email, order.location, order.productName, order.quantity, order.pricePerPiece, order.totalPrice, 'Cash On Delivery', 'New Order', '']] } });
     const mailer = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT), secure: Number(process.env.SMTP_PORT) === 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
     await mailer.sendMail({ from: process.env.EMAIL_FROM, to: process.env.BUSINESS_EMAIL, replyTo: process.env.EMAIL_FROM, subject: `New Product Order Received - ${orderId}`, html: emailLayout(`<h1 style="font:700 30px Georgia,serif">A new order is in.</h1><p><b>Order ID:</b> ${orderId}<br><b>Received:</b> ${timestamp}</p><div style="padding:14px;background:#fff4ee;border-radius:12px;color:#8c351f"><b>Please call the customer soon to confirm this order.</b></div><h3>Customer</h3><p>${order.customerName}<br>${order.phone}<br>${order.email}<br>${order.location}</p><h3>Order details</h3>${detailRows(order)}<p><b>Status:</b> New Order</p>`) });
