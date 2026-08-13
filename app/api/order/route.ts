@@ -17,7 +17,7 @@ async function setupSheet(sheets: ReturnType<typeof google.sheets>) {
   const title = process.env.GOOGLE_SHEET_TAB_NAME!;
   const info = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets(properties(sheetId,title),data.rowData.values.formattedValue)' });
   const sheet = info.data.sheets?.find((item) => item.properties?.title === title) ?? info.data.sheets?.[0];
-  if (!sheet?.properties?.sheetId || !sheet.properties.title) throw new Error('No usable sheet tab was found in this spreadsheet.');
+  if (!sheet?.properties || sheet.properties.sheetId == null || !sheet.properties.title) throw new Error('No usable sheet tab was found in this spreadsheet.');
   const activeTitle = sheet.properties.title;
   if (sheet.data?.[0]?.rowData?.[0]?.values?.some((cell) => cell.formattedValue)) return activeTitle;
   const sheetId = sheet.properties.sheetId;
